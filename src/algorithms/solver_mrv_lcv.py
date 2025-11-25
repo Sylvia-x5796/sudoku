@@ -12,7 +12,7 @@ You can integrate this class into your project as member C's part.
 from dataclasses import dataclass
 from copy import deepcopy
 from typing import List, Optional, Tuple, Set
-
+import time
 
 Board = List[List[int]]  # 9x9, 0 means empty
 
@@ -20,8 +20,9 @@ Board = List[List[int]]  # 9x9, 0 means empty
 @dataclass
 class SolveStats:
     """统计信息，用于难度评估和性能对比。"""
-    nodes: int = 0        # 搜索节点数（尝试赋值次数）
-    backtracks: int = 0   # 回溯次数
+    nodes: int = 0  # 搜索节点数（尝试赋值次数）
+    backtracks: int = 0  # 回溯次数
+    solve_time: float = 0.0  # 求解时间（秒）
 
 
 class MRVLCVSolver:
@@ -40,8 +41,10 @@ class MRVLCVSolver:
         self.stats = SolveStats()
         self._solution = None
 
+        start_time = time.time()
         work_board = deepcopy(board)
         success = self._backtrack(work_board)
+        self.stats.solve_time = time.time() - start_time
 
         if success:
             return self._solution
@@ -113,15 +116,15 @@ class MRVLCVSolver:
     # ---------- LCV：对候选值进行排序 ----------
 
     def _order_values_lcv(
-        self,
-        board: Board,
-        row: int,
-        col: int,
-        candidates: Set[int],
+            self,
+            board: Board,
+            row: int,
+            col: int,
+            candidates: Set[int],
     ) -> List[int]:
         """
         根据 LCV（Least Constraining Value）对候选数值排序：
-        尝试那些对相邻格子“约束最小”的值，即在邻居候选中出现次数更少的值。
+        尝试那些对相邻格子"约束最小"的值，即在邻居候选中出现次数更少的值。
         """
 
         def count_constraint(value: int) -> int:
@@ -129,7 +132,7 @@ class MRVLCVSolver:
             估计把 board[row][col] 设置为 value 之后，会对邻居候选造成多大约束。
             简单做法：
               - 统计同一行、同一列、同一宫中，有多少空格把 value 作为候选；
-                这个数字越大，说明这个 value 使用得越“抢占资源”（约束更大）。
+                这个数字越大，说明这个 value 使用得越"抢占资源"（约束更大）。
             """
             count = 0
 
@@ -154,7 +157,7 @@ class MRVLCVSolver:
 
             return count
 
-        # 为每个候选值计算“约束度”，然后按从小到大排序
+        # 为每个候选值计算"约束度"，然后按从小到大排序
         value_constraint_pairs = [
             (v, count_constraint(v)) for v in candidates
         ]
@@ -199,8 +202,8 @@ class MRVLCVSolver:
 # ---------------- 示例使用 ----------------
 
 if __name__ == "__main__":
-    # 0 表示空格
-    example_board = [
+    # 简单示例
+    easy_board = [
         [0, 0, 0, 2, 6, 0, 7, 0, 1],
         [6, 8, 0, 0, 7, 0, 0, 9, 0],
         [1, 9, 0, 0, 0, 4, 5, 0, 0],
@@ -212,14 +215,48 @@ if __name__ == "__main__":
         [7, 0, 3, 0, 1, 8, 0, 0, 0],
     ]
 
-    solver = MRVLCVSolver()
-    solution = solver.solve(example_board)
+    # 极难示例（需要更多回溯）
+    hard_board = [
+        [8, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 3, 6, 0, 0, 0, 0, 0],
+        [0, 7, 0, 0, 9, 0, 2, 0, 0],
+        [0, 5, 0, 0, 0, 7, 0, 0, 0],
+        [0, 0, 0, 0, 4, 5, 7, 0, 0],
+        [0, 0, 0, 1, 0, 0, 0, 3, 0],
+        [0, 0, 1, 0, 0, 0, 0, 6, 8],
+        [0, 0, 8, 5, 0, 0, 0, 1, 0],
+        [0, 9, 0, 0, 0, 0, 4, 0, 0],
+    ]
 
-    if solution:
-        print("Solved board:")
-        for row in solution:
-            print(row)
-        print("Nodes:", solver.stats.nodes)
-        print("Backtracks:", solver.stats.backtracks)
+    print("=" * 60)
+    print("Testing MRV + LCV Solver")
+    print("=" * 60)
+
+    # 测试简单数独
+    print("\n[Easy Sudoku]")
+    solver1 = MRVLCVSolver()
+    solution1 = solver1.solve(easy_board)
+
+    if solution1:
+        print("✓ Solved!")
+        print(f"  Nodes: {solver1.stats.nodes}")
+        print(f"  Backtracks: {solver1.stats.backtracks}")
+        print(f"  Time: {solver1.stats.solve_time:.6f}s")
     else:
-        print("No solution.")
+        print("✗ No solution found")
+
+    # 测试困难数独
+    print("\n[Hard Sudoku]")
+    solver2 = MRVLCVSolver()
+    solution2 = solver2.solve(hard_board)
+
+    if solution2:
+        print("✓ Solved!")
+        print(f"  Nodes: {solver2.stats.nodes}")
+        print(f"  Backtracks: {solver2.stats.backtracks}")
+        print(f"  Time: {solver2.stats.solve_time:.6f}s")
+        print("\nSolution:")
+        for row in solution2:
+            print(row)
+    else:
+        print("✗ No solution found")
