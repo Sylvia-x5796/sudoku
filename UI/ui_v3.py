@@ -1,33 +1,34 @@
-import tkinter as tk 
+import tkinter as tk
 from tkinter import ttk
 import time
 import random
+import threading
 
-# ---------------------- 1. 初始化主窗口（整合V1尺寸+V2标题）----------------------
+# ---------------------- 导入成员A的DFS算法（需确保A的文件在同一目录）----------------------
+# 注：需成员A提供改造后的 dfs_solver.py，内容见模块1的算法模板
+try:
+    from dfs_solver import DFSSudokuSolver
+except ImportError:
+    print("警告：未找到A的算法文件，请确保 dfs_solver.py 与当前文件在同一目录")
+
+# ---------------------- 1. 初始化主窗口 ----------------------
 root = tk.Tk()
-root.title("数独求解可视化工具 - V3.0（动画+编辑+性能统计）")
-root.geometry("500x780")  # 适配性能统计+测试按钮，高度微调
+root.title("数独求解可视化工具 - V4.0（算法驱动版）")
+root.geometry("500x780")
 root.resizable(False, False)
 
-# ---------------------- 2. 创建9×9网格容器（整合V2布局+V1可编辑）----------------------
+# ---------------------- 2. 创建9×9网格容器 ----------------------
 grid_frame = ttk.Frame(root, padding="20")
 grid_frame.pack(expand=True, fill=tk.BOTH)
 
-# 存储9×9输入框的二维列表
 sudoku_entries = [[None for _ in range(9)] for _ in range(9)]
-
-# 宫格颜色配置（沿用V2，3×3宫交替区分）
 cell_colors = []
 for row in range(9):
     row_colors = []
     for col in range(9):
-        if (row // 3 + col // 3) % 2 == 0:
-            row_colors.append("#f0f0f0")  # 浅色
-        else:
-            row_colors.append("#ffffff")  # 白色
+        row_colors.append("#f0f0f0" if (row // 3 + col // 3) % 2 == 0 else "#ffffff")
     cell_colors.append(row_colors)
 
-# 循环创建9×9输入框（使用 ui_v1.py 的简单样式）
 for row in range(9):
     for col in range(9):
         entry = tk.Entry(
@@ -35,7 +36,7 @@ for row in range(9):
             width=3,
             font=("Arial", 16, "bold"),
             justify=tk.CENTER,
-            state="normal"  # 允许用户编辑初始数独
+            state="normal"
         )
         entry.grid(
             row=row, column=col,
@@ -46,15 +47,13 @@ for row in range(9):
         entry.config(background=cell_colors[row][col])
         sudoku_entries[row][col] = entry
 
-# 网格自适应配置（沿用V2）
 for row in range(9):
     grid_frame.grid_rowconfigure(row, weight=1)
 for col in range(9):
     grid_frame.grid_columnconfigure(col, weight=1)
 
-# ---------------------- 3. 核心数据处理函数（整合V2状态控制+V1数据读取）----------------------
+# ---------------------- 3. 核心数据处理函数 ----------------------
 def fill_sudoku(sudoku_data):
-    """填充数独数据（动画/示例填充通用）"""
     disable_buttons()
     for row in range(9):
         for col in range(9):
@@ -64,19 +63,17 @@ def fill_sudoku(sudoku_data):
             entry.delete(0, tk.END)
             if value != 0:
                 entry.insert(0, str(value))
-            entry.config(state="readonly" if is_animating else "normal")  # 动画时锁定
+            entry.config(state="readonly" if is_animating else "normal")
     enable_buttons()
 
 def clear_sudoku():
-    """清空网格+重置性能数据（整合V1+V2）"""
     disable_buttons()
     empty_data = [[0 for _ in range(9)] for _ in range(9)]
     fill_sudoku(empty_data)
-    update_performance(None)  # 重置性能统计
+    update_performance(None)
     enable_buttons()
 
 def read_sudoku():
-    """读取用户编辑的数独数据（V1新增，供算法调用）"""
     sudoku_data = [[0 for _ in range(9)] for _ in range(9)]
     for row in range(9):
         for col in range(9):
@@ -87,7 +84,7 @@ def read_sudoku():
                 sudoku_data[row][col] = 0
     return sudoku_data
 
-# 示例数独数据（沿用V1/V2，作为一个默认中等难度）
+# ---------------------- 数独题库（复用你的代码）----------------------
 sample_sudoku = [
     [5, 3, 0, 0, 7, 0, 0, 0, 0],
     [6, 0, 0, 1, 9, 5, 0, 0, 0],
@@ -100,7 +97,6 @@ sample_sudoku = [
     [0, 0, 0, 0, 8, 0, 0, 7, 9]
 ]
 
-# ====================== 新增：不同难度的示例数独题库 ======================
 easy_puzzles = [
     [
         [0, 0, 0, 2, 6, 0, 7, 0, 1],
@@ -167,7 +163,6 @@ hard_puzzles = [
 ]
 
 def get_puzzle_by_difficulty(level: str):
-    """根据难度返回一盘随机数独"""
     if level == "简单":
         pool = easy_puzzles
     elif level == "中等":
@@ -175,66 +170,118 @@ def get_puzzle_by_difficulty(level: str):
     elif level == "困难":
         pool = hard_puzzles
     else:
-        # 未选择或未知难度时，回退到默认示例
         pool = [sample_sudoku]
     return random.choice(pool)
 
-# ---------------------- 4. 动画模块（使用 ui_v1.py 的简单样式，无动画效果）----------------------
+# ---------------------- 4. 动画模块（恢复阶段2优化版）----------------------
 def animate_cell_color(entry, start_color, end_color, duration=200):
-    """简化版：直接设置颜色，无渐变动画"""
-    pass  # 不执行颜色动画
+    steps = 20
+    step_duration = duration // steps
+
+    def hex_to_rgb(hex_color):
+        hex_color = hex_color.lstrip('#')
+        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+    
+    start_r, start_g, start_b = hex_to_rgb(start_color)
+    end_r, end_g, end_b = hex_to_rgb(end_color)
+    
+    delta_r = (end_r - start_r) / steps
+    delta_g = (end_g - start_g) / steps
+    delta_b = (end_b - start_b) / steps
+    
+    def update_step(step):
+        if step > steps:
+            entry.config(background=end_color)
+            return
+        current_r = int(start_r + delta_r * step)
+        current_g = int(start_g + delta_g * step)
+        current_b = int(start_b + delta_b * step)
+        current_color = f"#{current_r:02x}{current_g:02x}{current_b:02x}"
+        entry.config(background=current_color)
+        entry.after(step_duration, update_step, step + 1)
+    
+    update_step(1)
 
 def animate_number_fill(entry, value, duration=300):
-    """简化版：直接填充数字，无渐变动画"""
     entry.config(state="normal")
     entry.delete(0, tk.END)
     entry.insert(0, value)
-    entry.config(fg="#000000")
-    entry.config(state="readonly" if is_animating else "normal")
+    entry.config(foreground=entry["background"])
+    
+    steps = 15
+    step_duration = duration // steps
+    start_r, start_g, start_b = 240, 240, 240
+    end_r, end_g, end_b = 0, 0, 0
+    
+    def update_step(step):
+        if step > steps:
+            entry.config(foreground="#000000")
+            entry.config(state="readonly" if is_animating else "normal")
+            return
+        current_r = int(start_r - (start_r - end_r) * (step / steps))
+        current_g = int(start_g - (start_g - end_g) * (step / steps))
+        current_b = int(start_b - (start_b - end_b) * (step / steps))
+        current_color = f"#{current_r:02x}{current_g:02x}{current_b:02x}"
+        entry.config(foreground=current_color)
+        entry.after(step_duration, update_step, step + 1)
+    
+    update_step(1)
 
 def animate_backtrack(entry, duration=200):
-    """简化版：直接清空，无动画效果"""
-    entry.config(state="normal")
-    entry.delete(0, tk.END)
-    entry.config(state="readonly" if is_animating else "normal")
+    original_color = entry["background"]
+    animate_cell_color(entry, original_color, "#ffb6c1", duration=duration//2)
+    
+    def clear_after_highlight():
+        entry.config(state="normal")
+        entry.delete(0, tk.END)
+        entry.config(state="readonly" if is_animating else "normal")
+        animate_cell_color(entry, "#ffb6c1", original_color, duration=duration//2)
+    
+    entry.after(duration//2, clear_after_highlight)
 
-# ---------------------- 5. 核心动画接口（简化版，无动画延迟）----------------------
+# ---------------------- 5. 核心动画接口（供A调用）----------------------
 def animation_fill_cell(row, col, value):
     if not (0 <= row < 9 and 0 <= col < 9):
         print("无效的单元格坐标")
         return
     entry = sudoku_entries[row][col]
-    animate_number_fill(entry, str(value), duration=0)
+    add_animation_to_queue(animate_number_fill, entry, str(value), 300)
 
 def animation_single_fill(row, col, value):
     if not (0 <= row < 9 and 0 <= col < 9):
         print("无效的单元格坐标")
         return
     entry = sudoku_entries[row][col]
-    animate_number_fill(entry, str(value), duration=0)
+    add_animation_to_queue(animate_number_fill, entry, str(value), 200)
 
 def animation_backtrack_cell(row, col):
     if not (0 <= row < 9 and 0 <= col < 9):
         print("无效的单元格坐标")
         return
     entry = sudoku_entries[row][col]
-    animate_backtrack(entry, duration=0)
+    add_animation_to_queue(animate_backtrack, entry, 200)
 
-# ---------------------- 6. 动画队列（简化版，立即执行）----------------------
+# ---------------------- 6. 动画队列 ----------------------
 animation_queue = []
 is_animating = False
 
 def add_animation_to_queue(anim_func, *args):
-    """简化版：立即执行，不使用队列"""
-    anim_func(*args)
+    animation_queue.append((anim_func, args))
+    if not is_animating:
+        run_next_animation()
 
 def run_next_animation():
-    """简化版：无需队列处理"""
-    pass
+    global is_animating
+    if not animation_queue:
+        is_animating = False
+        return
+    is_animating = True
+    anim_func, args = animation_queue.pop(0)
+    anim_func(*args)
+    root.after(350, run_next_animation)
 
-# ---------------------- 7. 按钮状态控制（整合所有按钮，新增求解/对比按钮）----------------------
+# ---------------------- 7. 按钮状态控制 ----------------------
 def disable_buttons():
-    # 包含所有功能按钮+测试按钮+求解按钮
     fill_btn.config(state="disabled")
     clear_btn.config(state="disabled")
     test_fill_btn.config(state="disabled")
@@ -242,6 +289,10 @@ def disable_buttons():
     test_single_btn.config(state="disabled")
     solve_btn.config(state="disabled")
     compare_btn.config(state="disabled")
+    difficulty_menu.config(state="disabled")
+    for row in range(9):
+        for col in range(9):
+            sudoku_entries[row][col].config(state="readonly")
 
 def enable_buttons():
     fill_btn.config(state="normal")
@@ -251,8 +302,12 @@ def enable_buttons():
     test_single_btn.config(state="normal")
     solve_btn.config(state="normal")
     compare_btn.config(state="normal")
+    difficulty_menu.config(state="readonly")
+    for row in range(9):
+        for col in range(9):
+            sudoku_entries[row][col].config(state="normal")
 
-# ====================== 新增：难度选择区 ======================
+# ---------------------- 8. 难度选择区 ----------------------
 difficulty_frame = ttk.Frame(root, padding="0 10 0 0")
 difficulty_frame.pack(fill=tk.X, padx=20)
 
@@ -262,32 +317,30 @@ difficulty_label.pack(side=tk.LEFT, padx=5)
 difficulty_var = tk.StringVar(value="中等")
 difficulty_options = ["简单", "中等", "困难"]
 difficulty_menu = ttk.Combobox(
-    difficulty_frame, 
-    textvariable=difficulty_var, 
-    values=difficulty_options, 
-    state="readonly", 
+    difficulty_frame,
+    textvariable=difficulty_var,
+    values=difficulty_options,
+    state="readonly",
     width=10
 )
 difficulty_menu.pack(side=tk.LEFT, padx=5)
 
-# ---------------------- 8. 功能按钮区（整合V1填充/清空+V2测试按钮）----------------------
+# ---------------------- 9. 功能按钮区 ----------------------
 button_frame = ttk.Frame(root, padding="0 10 0 10")
 button_frame.pack(fill=tk.X, padx=20)
 
 def fill_with_difficulty():
-    """根据当前选择的难度生成一盘数独"""
     level = difficulty_var.get()
     sudoku_data = get_puzzle_by_difficulty(level)
     fill_sudoku(sudoku_data)
 
-# 填充按钮：改为按难度生成数独
 fill_btn = ttk.Button(button_frame, text="生成数独（按难度）", command=fill_with_difficulty)
 fill_btn.pack(side=tk.LEFT, padx=5)
 
 clear_btn = ttk.Button(button_frame, text="清空网格", command=clear_sudoku)
 clear_btn.pack(side=tk.LEFT, padx=5)
 
-# 动画测试按钮（保留V2，用于演示）
+# 动画测试按钮
 test_frame = ttk.Frame(root, padding="0 0 0 10")
 test_frame.pack(fill=tk.X, padx=20)
 
@@ -314,7 +367,7 @@ def test_single_fill_animation():
 test_single_btn = ttk.Button(test_frame, text="测试单步填数过渡", command=test_single_fill_animation)
 test_single_btn.pack(side=tk.LEFT, padx=5)
 
-# ---------------------- 9. 算法选择区（用V1的Combobox，更美观）----------------------
+# ---------------------- 10. 算法选择区 ----------------------
 algorithm_frame = ttk.Frame(root, padding="0 0 0 10")
 algorithm_frame.pack(fill=tk.X, padx=20)
 
@@ -323,15 +376,13 @@ alg_label.pack(side=tk.LEFT, padx=5)
 
 algorithm_var = tk.StringVar(value="请选择算法")
 alg_options = ["基础DFS算法（成员A）", "进阶CSP算法（成员C）"]
-# 改用V1的Combobox（比OptionMenu交互更友好）
 alg_menu = ttk.Combobox(algorithm_frame, textvariable=algorithm_var, values=alg_options, state="readonly")
 alg_menu.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
 
-# ---------------------- 10. 性能统计板块（完整保留V1，阶段3核心功能）----------------------
+# ---------------------- 11. 性能统计板块 ----------------------
 performance_frame = ttk.LabelFrame(root, text="算法性能统计", padding="10")
 performance_frame.pack(fill=tk.BOTH, padx=20, pady=10, expand=True)
 
-# 性能指标标签
 perf_labels = {}
 metrics = [
     ("algorithm", "算法名称：", "未运行"),
@@ -351,9 +402,7 @@ for i, (key, label_text, default_value) in enumerate(metrics):
     perf_labels[key] = value_label
 
 def update_performance(perf_data):
-    """更新性能显示（整合动画和求解流程）"""
     if perf_data is None:
-        # 重置为默认值
         perf_labels['algorithm'].config(text="未运行")
         perf_labels['time'].config(text="0.000 秒")
         perf_labels['nodes'].config(text="0")
@@ -372,71 +421,89 @@ def update_performance(perf_data):
         else:
             perf_labels['status'].config(text=status, foreground="#666666")
 
-# ---------------------- 11. 求解按钮区（整合V1按钮+V2动画+性能统计）----------------------
+# ---------------------- 新增：实时性能更新函数 ----------------------
+def update_perf_real_time(nodes, backtracks):
+    perf_labels['nodes'].config(text=str(nodes))
+    perf_labels['backtracks'].config(text=str(backtracks))
+    if 'solve_start_time' in globals():
+        elapsed_time = time.time() - solve_start_time
+        perf_labels['time'].config(text=f"{elapsed_time:.3f} 秒")
+
+# ---------------------- 12. 求解按钮区（真实算法调用）----------------------
 solve_frame = ttk.Frame(root, padding="0 0 0 20")
 solve_frame.pack(fill=tk.X, padx=20)
 
 def solve_sudoku():
-    """模拟算法求解（关联动画+性能统计，阶段3将替换为真实算法调用）"""
+    global solve_start_time, is_animating
     selected_alg = algorithm_var.get()
+    
+    # 前置校验
     if selected_alg == "请选择算法":
         perf_labels['status'].config(text="请先选择算法", foreground="#cc0000")
         return
-    
-    # 读取用户编辑的数独数据
     sudoku_data = read_sudoku()
     if all(value == 0 for row in sudoku_data for value in row):
         perf_labels['status'].config(text="请输入或生成数独", foreground="#cc0000")
         return
     
-    # 清空原有动画队列，重置状态
-    global animation_queue
-    animation_queue = []
-    clear_sudoku()
-    fill_sudoku(sudoku_data)  # 重新填充用户输入的数独
+    # 初始化状态
+    disable_buttons()
+    is_animating = True
+    animation_queue.clear()
+    perf_labels['algorithm'].config(text=selected_alg)
+    perf_labels['nodes'].config(text="0")
+    perf_labels['backtracks'].config(text="0")
+    perf_labels['time'].config(text="0.000 秒")
     perf_labels['status'].config(text="求解中...", foreground="#ff9900")
     
-    # 模拟算法求解过程（触发动画+统计性能）
-    start_time = time.time()
-    disable_buttons()
+    # 启动算法
+    solve_start_time = time.time()
+    try:
+        if selected_alg == "基础DFS算法（成员A）":
+            if 'DFSSudokuSolver' not in globals():
+                raise ImportError("未找到A的DFS算法")
+            solver = DFSSudokuSolver(
+                animate_fill=animation_fill_cell,
+                animate_backtrack=animation_backtrack_cell,
+                update_perf=update_perf_real_time
+            )
+            # 线程运行算法，避免UI阻塞
+            def run_solver():
+                success, result_board, final_perf = solver.run(sudoku_data)
+                root.after(0, finish_solve, success, result_board, final_perf)
+            threading.Thread(target=run_solver, daemon=True).start()
+        
+        elif selected_alg == "进阶CSP算法（成员C）":
+            perf_labels['status'].config(text="CSP算法待接入", foreground="#ff9900")
+            root.after(1000, enable_buttons)
+            is_animating = False
     
-    # 模拟填数动画（随机选择几个单元格，实际将替换为A/C的算法回调）
-    def simulate_solve():
-        # 模拟搜索节点和回溯次数
-        nodes = random.randint(200, 1500)
-        backtracks = random.randint(30, 300)
-        
-        # 模拟填数动画队列
-        fill_positions = [(0,2,4), (1,3,7), (2,5,3), (3,1,2), (4,4,5), (5,6,8), (6,7,1), (7,0,6), (8,8,9)]
-        for row, col, val in fill_positions:
-            add_animation_to_queue(animation_single_fill, row, col, val)
-        
-        # 模拟回溯动画（随机选1个位置）
-        backtrack_row, backtrack_col = 2, 5
-        add_animation_to_queue(animation_backtrack_cell, backtrack_row, backtrack_col)
-        add_animation_to_queue(animation_single_fill, backtrack_row, backtrack_col, 6)  # 回溯后重新填数
-        
-        # 计算耗时，更新性能统计
-        end_time = time.time()
-        perf_data = {
-            'algorithm': selected_alg,
-            'time': end_time - start_time,
-            'nodes': nodes,
-            'backtracks': backtracks,
-            'status': '成功'
-        }
-        root.after(350 * len(animation_queue), update_performance, perf_data)
-        root.after(350 * len(animation_queue), enable_buttons)
-    
-    root.after(500, simulate_solve)
+    except Exception as e:
+        root.after(0, lambda: perf_labels['status'].config(text=f"出错：{str(e)[:20]}", foreground="#cc0000"))
+        root.after(0, enable_buttons)
+        is_animating = False
 
-# 求解按钮（关联模拟求解流程）
+def finish_solve(success, result_board, final_perf):
+    global is_animating
+    is_animating = False
+    # 更新最终性能
+    perf_labels['time'].config(text=f"{final_perf['time']:.3f} 秒")
+    perf_labels['nodes'].config(text=str(final_perf['nodes']))
+    perf_labels['backtracks'].config(text=str(final_perf['backtracks']))
+    # 更新结果状态
+    if success:
+        perf_labels['status'].config(text="求解成功", foreground="#00aa00")
+        fill_sudoku(result_board)
+    else:
+        perf_labels['status'].config(text="求解失败（无解）", foreground="#cc0000")
+    # 启用按钮
+    enable_buttons()
+
 solve_btn = ttk.Button(solve_frame, text="开始求解", command=solve_sudoku)
 solve_btn.pack(side=tk.LEFT, padx=5)
 
-# 对比按钮（预留阶段3功能，暂用空实现）
-compare_btn = ttk.Button(solve_frame, text="对比所有算法", command=lambda: print("对比功能预留"))
+compare_btn = ttk.Button(solve_frame, text="对比所有算法", command=lambda: perf_labels['status'].config(text="对比功能待实现", foreground="#ff9900"))
 compare_btn.pack(side=tk.LEFT, padx=5)
 
-# ---------------------- 12. 启动主循环 ----------------------
+# ---------------------- 13. 启动主循环 ----------------------
 root.mainloop()
