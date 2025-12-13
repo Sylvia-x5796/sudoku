@@ -1,12 +1,17 @@
-import tkinter as tk
-from tkinter import ttk, messagebox
-import time
-import random
-import threading
-from copy import deepcopy
-import sys
 import os
+import random
+import sys
+import threading
+import time
+import tkinter as tk
+from copy import deepcopy
+from tkinter import ttk, messagebox
 
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
+plt.rcParams['font.sans-serif'] = ['SimHei']  # 设置为黑体字体
+plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
 # ---------------------- 修复导入路径 ----------------------
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
@@ -19,6 +24,7 @@ try:
     from src.algorithms.solver_mrv_lcv import MRVLCVSolver
     from src.algorithms.solver_ac3_mrv_lcv import AC3_MRV_LCV_Solver
     from src.generator.sudoku_generator import SudokuGenerator
+
     print("✓ 算法和生成器加载成功")
 except ImportError as e:
     print(f"✗ 警告：导入算法或生成器失败 - {e}")
@@ -293,6 +299,7 @@ compare_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 compare_text.insert(tk.END, "点击「对比所有算法」按钮查看结果...")
 compare_text.config(state="disabled")
 
+
 # ---------------------- 核心数据处理函数（完全不变）----------------------
 def fill_sudoku(sudoku_data):
     disable_buttons()
@@ -307,6 +314,7 @@ def fill_sudoku(sudoku_data):
             entry.config(state="readonly" if (is_animating or animate_var.get()) else "normal")
     enable_buttons()
 
+
 def clear_sudoku():
     disable_buttons()
     empty_data = [[0 for _ in range(9)] for _ in range(9)]
@@ -319,6 +327,7 @@ def clear_sudoku():
     compare_text.config(state="disabled")
     enable_buttons()
 
+
 def read_sudoku():
     sudoku_data = [[0 for _ in range(9)] for _ in range(9)]
     for row in range(9):
@@ -329,6 +338,7 @@ def read_sudoku():
             else:
                 sudoku_data[row][col] = 0
     return sudoku_data
+
 
 # ---------------------- 数独题库（完全不变）----------------------
 sample_sudoku = [
@@ -405,6 +415,7 @@ hard_puzzles = [
     ]
 ]
 
+
 def get_puzzle_by_difficulty(level: str):
     if level == "简单":
         pool = easy_puzzles
@@ -416,21 +427,23 @@ def get_puzzle_by_difficulty(level: str):
         pool = [sample_sudoku]
     return random.choice(pool)
 
+
 # ---------------------- 动画模块（完全不变）----------------------
 def animate_cell_color(entry, start_color, end_color, duration=200):
     steps = 20
     step_duration = duration // steps
+
     def hex_to_rgb(hex_color):
         hex_color = hex_color.lstrip('#')
-        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-    
+        return tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+
     start_r, start_g, start_b = hex_to_rgb(start_color)
     end_r, end_g, end_b = hex_to_rgb(end_color)
-    
+
     delta_r = (end_r - start_r) / steps
     delta_g = (end_g - start_g) / steps
     delta_b = (end_b - start_b) / steps
-    
+
     def update_step(step):
         if step > steps:
             entry.config(background=end_color)
@@ -441,20 +454,21 @@ def animate_cell_color(entry, start_color, end_color, duration=200):
         current_color = f"#{current_r:02x}{current_g:02x}{current_b:02x}"
         entry.config(background=current_color)
         entry.after(step_duration, update_step, step + 1)
-    
+
     update_step(1)
+
 
 def animate_number_fill(entry, value, duration=300):
     entry.config(state="normal")
     entry.delete(0, tk.END)
     entry.insert(0, value)
     entry.config(foreground=entry["background"])
-    
+
     steps = 15
     step_duration = duration // steps
     start_r, start_g, start_b = 240, 240, 240
     end_r, end_g, end_b = 0, 0, 0
-    
+
     def update_step(step):
         if step > steps:
             entry.config(foreground="#000000")
@@ -466,20 +480,22 @@ def animate_number_fill(entry, value, duration=300):
         current_color = f"#{current_r:02x}{current_g:02x}{current_b:02x}"
         entry.config(foreground=current_color)
         entry.after(step_duration, update_step, step + 1)
-    
+
     update_step(1)
+
 
 def animate_backtrack(entry, duration=200):
     original_color = entry["background"]
-    animate_cell_color(entry, original_color, "#ffb6c1", duration=duration//2)
-    
+    animate_cell_color(entry, original_color, "#ffb6c1", duration=duration // 2)
+
     def clear_after_highlight():
         entry.config(state="normal")
         entry.delete(0, tk.END)
         entry.config(state="readonly" if (is_animating or animate_var.get()) else "normal")
-        animate_cell_color(entry, "#ffb6c1", original_color, duration=duration//2)
-    
-    entry.after(duration//2, clear_after_highlight)
+        animate_cell_color(entry, "#ffb6c1", original_color, duration=duration // 2)
+
+    entry.after(duration // 2, clear_after_highlight)
+
 
 # ---------------------- 核心动画接口（完全不变）----------------------
 def animation_fill_cell(row, col, value):
@@ -489,12 +505,14 @@ def animation_fill_cell(row, col, value):
     entry = sudoku_entries[row][col]
     add_animation_to_queue(animate_number_fill, entry, str(value), 300)
 
+
 def animation_single_fill(row, col, value):
     if not (0 <= row < 9 and 0 <= col < 9):
         print("无效的单元格坐标")
         return
     entry = sudoku_entries[row][col]
     add_animation_to_queue(animate_number_fill, entry, str(value), 200)
+
 
 def animation_backtrack_cell(row, col):
     if not (0 <= row < 9 and 0 <= col < 9):
@@ -503,14 +521,17 @@ def animation_backtrack_cell(row, col):
     entry = sudoku_entries[row][col]
     add_animation_to_queue(animate_backtrack, entry, 200)
 
+
 # ---------------------- 动画队列（完全不变）----------------------
 animation_queue = []
 is_animating = False
+
 
 def add_animation_to_queue(anim_func, *args):
     animation_queue.append((anim_func, args))
     if not is_animating and animate_var.get():
         run_next_animation()
+
 
 def run_next_animation():
     global is_animating
@@ -521,6 +542,7 @@ def run_next_animation():
     anim_func, args = animation_queue.pop(0)
     anim_func(*args)
     root.after(350, run_next_animation)
+
 
 # ---------------------- 按钮状态控制（完全不变）----------------------
 def disable_buttons():
@@ -536,6 +558,7 @@ def disable_buttons():
         for col in range(9):
             sudoku_entries[row][col].config(state="readonly")
 
+
 def enable_buttons():
     fill_btn.config(state="normal")
     clear_btn.config(state="normal")
@@ -549,20 +572,21 @@ def enable_buttons():
         for col in range(9):
             sudoku_entries[row][col].config(state="normal")
 
+
 # ---------------------- 生成数独函数（完全不变）----------------------
 def fill_with_difficulty():
     if SudokuGenerator is None:
         messagebox.showerror("错误", "数独生成器未加载")
         return
-    
+
     level = difficulty_var.get()
     difficulty_map = {"简单": "Easy", "中等": "Medium", "困难": "Hard"}
     target_difficulty = difficulty_map.get(level, "Medium")
-    
+
     def generate_in_thread():
         disable_buttons()
         perf_labels['status'].config(text=f"正在生成{level}数独...", foreground="#ff9900")
-        
+
         try:
             generator = SudokuGenerator()
             puzzle, info = generator.generate_puzzle_with_difficulty(
@@ -579,8 +603,9 @@ def fill_with_difficulty():
             root.after(0, lambda: messagebox.showerror("生成失败", str(e)))
         finally:
             root.after(0, enable_buttons)
-    
+
     threading.Thread(target=generate_in_thread, daemon=True).start()
+
 
 # ---------------------- 性能统计更新（微调：适配新布局）----------------------
 def update_performance(perf_data):
@@ -603,6 +628,7 @@ def update_performance(perf_data):
         else:
             perf_labels['status'].config(text=status, foreground="#666666")
 
+
 def update_perf_real_time(nodes, backtracks):
     perf_labels['nodes'].config(text=str(nodes))
     perf_labels['backtracks'].config(text=str(backtracks))
@@ -610,24 +636,26 @@ def update_perf_real_time(nodes, backtracks):
         elapsed_time = time.time() - solve_start_time
         perf_labels['time'].config(text=f"{elapsed_time:.3f} 秒")
 
+
 # ---------------------- 统计图表显示（占位函数）----------------------
 def show_chart():
     messagebox.showinfo("图表功能", "统计图表功能将在后续版本实现\n当前已显示核心统计数据")
+
 
 # ---------------------- 求解函数（微调：适配动画开关）----------------------
 def solve_sudoku():
     global solve_start_time, is_animating
     selected_alg = algorithm_var.get()
-    
+
     if selected_alg == "请选择算法":
         perf_labels['status'].config(text="请先选择算法", foreground="#cc0000")
         return
-    
+
     sudoku_data = read_sudoku()
     if all(value == 0 for row in sudoku_data for value in row):
         perf_labels['status'].config(text="请输入或生成数独", foreground="#cc0000")
         return
-    
+
     disable_buttons()
     is_animating = animate_var.get()
     animation_queue.clear()
@@ -636,12 +664,12 @@ def solve_sudoku():
     perf_labels['backtracks'].config(text="0")
     perf_labels['time'].config(text="0.000 秒")
     perf_labels['status'].config(text="求解中...", foreground="#ff9900")
-    
+
     def run_solver():
         try:
             start_time = time.time()
             puzzle = deepcopy(sudoku_data)
-            
+
             if selected_alg == "基础DFS算法":
                 if BasicSolver is None:
                     raise ImportError("基础DFS算法未加载")
@@ -655,7 +683,7 @@ def solve_sudoku():
                     'status': '成功' if solution else '失败'
                 }
                 root.after(0, finish_solve, solution is not None, solution, final_perf)
-            
+
             elif selected_alg == "MRV+LCV算法":
                 if MRVLCVSolver is None:
                     raise ImportError("MRV+LCV算法未加载")
@@ -669,7 +697,7 @@ def solve_sudoku():
                     'status': '成功' if solution else '失败'
                 }
                 root.after(0, finish_solve, solution is not None, solution, final_perf)
-            
+
             elif selected_alg == "AC3+MRV+LCV算法":
                 if AC3_MRV_LCV_Solver is None:
                     raise ImportError("AC3+MRV+LCV算法未加载")
@@ -683,32 +711,34 @@ def solve_sudoku():
                     'status': '成功' if solution else '失败'
                 }
                 root.after(0, finish_solve, solution is not None, solution, final_perf)
-            
+
             else:
                 raise ValueError(f"未知算法: {selected_alg}")
-        
+
         except Exception as e:
             root.after(0, lambda: messagebox.showerror("求解错误", str(e)))
             root.after(0, lambda: perf_labels['status'].config(text=f"出错", foreground="#cc0000"))
             root.after(0, enable_buttons)
-    
+
     threading.Thread(target=run_solver, daemon=True).start()
+
 
 def finish_solve(success, result_board, final_perf):
     global is_animating
     is_animating = False
-    
+
     perf_labels['time'].config(text=f"{final_perf['time']:.3f} 秒")
     perf_labels['nodes'].config(text=str(final_perf['nodes']))
     perf_labels['backtracks'].config(text=str(final_perf['backtracks']))
-    
+
     if success:
         perf_labels['status'].config(text="求解成功", foreground="#00aa00")
         fill_sudoku(result_board)
     else:
         perf_labels['status'].config(text="求解失败（无解）", foreground="#cc0000")
-    
+
     enable_buttons()
+
 
 # ---------------------- 算法对比函数（微调：结果显示到文本框）----------------------
 def compare_algorithms():
@@ -716,23 +746,27 @@ def compare_algorithms():
     if all(value == 0 for row in sudoku_data for value in row):
         messagebox.showwarning("提示", "请先输入或生成数独")
         return
-    
+
     disable_buttons()
     perf_labels['status'].config(text="正在对比算法...", foreground="#ff9900")
     compare_text.config(state="normal")
     compare_text.delete(1.0, tk.END)
     compare_text.insert(tk.END, "正在运行算法对比，请稍候...\n")
     compare_text.config(state="disabled")
-    
+
     def run_comparison():
         try:
             results = []
-            
+
             # 测试基础DFS算法
             if BasicSolver:
                 puzzle = deepcopy(sudoku_data)
                 solver = BasicSolver()
                 solution = solver.solve(puzzle)
+                # 保存性能数据
+                performance_data["基础DFS"]["time"] = solver.stats.solve_time
+                performance_data["基础DFS"]["nodes"] = solver.stats.nodes
+                performance_data["基础DFS"]["backtracks"] = solver.stats.backtracks
                 results.append(
                     f"基础DFS算法："
                     f"耗时{solver.stats.solve_time:.3f}秒 | "
@@ -740,12 +774,16 @@ def compare_algorithms():
                     f"回溯{solver.stats.backtracks} | "
                     f"{'✓成功' if solution else '✗失败'}"
                 )
-            
+
             # 测试MRV+LCV算法
             if MRVLCVSolver:
                 puzzle = deepcopy(sudoku_data)
                 solver = MRVLCVSolver()
                 solution = solver.solve(puzzle)
+                # 保存性能数据
+                performance_data["MRV+LCV"]["time"] = solver.stats.solve_time
+                performance_data["MRV+LCV"]["nodes"] = solver.stats.nodes
+                performance_data["MRV+LCV"]["backtracks"] = solver.stats.backtracks
                 results.append(
                     f"MRV+LCV算法："
                     f"耗时{solver.stats.solve_time:.3f}秒 | "
@@ -753,12 +791,16 @@ def compare_algorithms():
                     f"回溯{solver.stats.backtracks} | "
                     f"{'✓成功' if solution else '✗失败'}"
                 )
-            
+
             # 测试AC3+MRV+LCV算法
             if AC3_MRV_LCV_Solver:
                 puzzle = deepcopy(sudoku_data)
                 solver = AC3_MRV_LCV_Solver()
                 solution = solver.solve(puzzle)
+                # 保存性能数据
+                performance_data["AC3+MRV+LCV"]["time"] = solver.stats.solve_time
+                performance_data["AC3+MRV+LCV"]["nodes"] = solver.stats.nodes
+                performance_data["AC3+MRV+LCV"]["backtracks"] = solver.stats.backtracks
                 results.append(
                     f"AC3+MRV+LCV算法："
                     f"耗时{solver.stats.solve_time:.3f}秒 | "
@@ -766,7 +808,7 @@ def compare_algorithms():
                     f"回溯{solver.stats.backtracks} | "
                     f"{'✓成功' if solution else '✗失败'}"
                 )
-            
+
             # 显示结果到文本框
             result_text = "\n".join(results)
             root.after(0, lambda: [
@@ -774,15 +816,183 @@ def compare_algorithms():
                 compare_text.delete(1.0, tk.END),
                 compare_text.insert(tk.END, result_text),
                 compare_text.config(state="disabled"),
-                perf_labels['status'].config(text="对比完成", foreground="#0066cc")
+                perf_labels['status'].config(text="对比完成，可查看图表", foreground="#0066cc")
             ])
-        
+
         except Exception as e:
             root.after(0, lambda: messagebox.showerror("对比失败", str(e)))
         finally:
             root.after(0, enable_buttons)
-    
+
     threading.Thread(target=run_comparison, daemon=True).start()
+
+
+# 用于保存实时性能数据
+performance_data = {
+    "基础DFS": {"time": 0, "nodes": 0, "backtracks": 0},
+    "MRV+LCV": {"time": 0, "nodes": 0, "backtracks": 0},
+    "AC3+MRV+LCV": {"time": 0, "nodes": 0, "backtracks": 0},
+}
+
+
+def show_chart():
+    """显示专业的统计图表窗口 - 柱状图+折线图组合"""
+    # 检查是否有有效数据
+    has_data = any(performance_data[alg]["nodes"] > 0 for alg in performance_data)
+
+    if not has_data:
+        messagebox.showinfo("提示", "请先运行「对比所有算法」以获取统计数据")
+        return
+
+    # 创建弹窗
+    chart_window = tk.Toplevel(root)
+    chart_window.title("算法性能统计图表")
+    chart_window.geometry("900x650")
+    chart_window.resizable(True, True)
+
+    # 获取当前统计数据（实时数据）
+    algorithms = ["基础DFS", "MRV+LCV", "AC3+MRV+LCV"]
+    times = [performance_data[alg]["time"] for alg in performance_data.keys()]
+    nodes = [performance_data[alg]["nodes"] for alg in performance_data.keys()]
+    backtracks = [performance_data[alg]["backtracks"] for alg in performance_data.keys()]
+    
+    # 获取当前难度
+    current_difficulty = difficulty_var.get()
+
+    # 创建图表 - 双Y轴（左侧柱状图，右侧折线图）
+    import numpy as np
+    
+    fig, ax1 = plt.subplots(figsize=(10, 6))
+    fig.suptitle(f'算法性能对比 - {current_difficulty}难度',
+                 fontsize=15, fontweight='bold', y=0.97)
+
+    # 设置X轴位置
+    x = np.arange(len(algorithms))
+    
+    # 配色方案
+    color_time = '#A8D8EA'        # 执行时间：淡蓝色
+    color_nodes = '#FFD700'       # 搜索节点：金黄色（折线）
+    color_backtracks = '#90EE90'  # 回溯次数：浅绿色（折线）
+
+    # 左侧Y轴：绘制执行时间柱状图
+    bars = ax1.bar(x, times, width=0.6, label='执行时间', 
+                   color=color_time, alpha=0.85, edgecolor='#4A90A4', linewidth=2)
+    ax1.set_xlabel('算法类型', fontsize=12, fontweight='bold', labelpad=10)
+    ax1.set_ylabel('执行时间 (秒)', fontsize=12, fontweight='bold', color='#4A90A4')
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(algorithms, fontsize=11)
+    ax1.tick_params(axis='y', labelcolor='#4A90A4')
+    ax1.grid(axis='y', linestyle='--', alpha=0.3, linewidth=0.7)
+    ax1.set_axisbelow(True)
+    
+    # 在柱子上显示时间数值
+    for i, bar in enumerate(bars):
+        height = bar.get_height()
+        ax1.text(bar.get_x() + bar.get_width() / 2., height,
+                f'{times[i]:.4f}s',
+                ha='center', va='bottom', fontsize=10, fontweight='bold', color='#2C5F75')
+    
+    # 设置左侧Y轴范围
+    if max(times) > 0:
+        ax1.set_ylim(0, max(times) * 1.25)
+
+    # 右侧Y轴：绘制节点数和回溯次数折线图
+    ax2 = ax1.twinx()
+    
+    # 绘制搜索节点数折线
+    line1 = ax2.plot(x, nodes, color='#DAA520', marker='o', markersize=10, 
+                     linewidth=3, label='搜索节点数', linestyle='--', alpha=0.9)
+    
+    # 绘制回溯次数折线
+    line2 = ax2.plot(x, backtracks, color='#228B22', marker='s', markersize=10, 
+                     linewidth=3, label='回溯次数', linestyle='--', alpha=0.9)
+    
+    ax2.set_ylabel('节点数 / 回溯次数', fontsize=12, fontweight='bold', color='#666666')
+    ax2.tick_params(axis='y', labelcolor='#666666')
+    
+    # 在折线上显示数值
+    for i, (node, backtrack) in enumerate(zip(nodes, backtracks)):
+        # 节点数标签
+        ax2.text(x[i], node, f'{node}', 
+                ha='center', va='bottom', fontsize=10, fontweight='bold', 
+                color='#DAA520', bbox=dict(boxstyle='round,pad=0.3', 
+                facecolor='white', edgecolor='#DAA520', alpha=0.8))
+        # 回溯次数标签
+        ax2.text(x[i], backtrack, f'{backtrack}', 
+                ha='center', va='top', fontsize=10, fontweight='bold', 
+                color='#228B22', bbox=dict(boxstyle='round,pad=0.3', 
+                facecolor='white', edgecolor='#228B22', alpha=0.8))
+    
+    # 设置右侧Y轴范围
+    all_line_values = nodes + backtracks
+    if max(all_line_values) > 0:
+        ax2.set_ylim(0, max(all_line_values) * 1.3)
+
+    # 合并图例，放在右上角
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines1 + lines2, labels1 + labels2, 
+              loc='upper right', fontsize=10, framealpha=0.95, 
+              edgecolor='#CCCCCC', fancybox=True, shadow=True)
+
+    # 调整布局
+    plt.tight_layout(rect=[0, 0.02, 1, 0.95])
+
+    # 将图表嵌入到 tkinter 弹窗中
+    canvas = FigureCanvasTkAgg(fig, master=chart_window)
+    canvas.draw()
+    canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=15, pady=10)
+
+    # 底部按钮栏
+    button_frame = ttk.Frame(chart_window)
+    button_frame.pack(fill=tk.X, padx=15, pady=10)
+    
+    # 保存图表按钮
+    save_btn = ttk.Button(
+        button_frame,
+        text="保存图表",
+        command=lambda: save_chart_image(fig),
+        style="Large.TButton"
+    )
+    save_btn.pack(side=tk.LEFT, padx=5)
+    
+    # 关闭按钮
+    close_btn = ttk.Button(
+        button_frame,
+        text="关闭",
+        command=chart_window.destroy,
+        style="Large.TButton"
+    )
+    close_btn.pack(side=tk.RIGHT, padx=5)
+
+
+def save_chart_image(fig):
+    """保存图表为图片"""
+    from tkinter import filedialog
+    import datetime
+    
+    # 生成默认文件名
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    default_name = f"数独算法对比_{timestamp}.png"
+    
+    # 打开保存对话框
+    filepath = filedialog.asksaveasfilename(
+        defaultextension=".png",
+        initialfile=default_name,
+        filetypes=[
+            ("PNG图片", "*.png"),
+            ("JPEG图片", "*.jpg"),
+            ("所有文件", "*.*")
+        ]
+    )
+    
+    if filepath:
+        try:
+            fig.savefig(filepath, dpi=300, bbox_inches='tight')
+            messagebox.showinfo("成功", f"图表已保存至:\n{filepath}")
+        except Exception as e:
+            messagebox.showerror("保存失败", f"无法保存图表:\n{str(e)}")
+
 
 # ---------------------- 启动主循环 ----------------------
 root.mainloop()
