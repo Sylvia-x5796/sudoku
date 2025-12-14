@@ -22,13 +22,24 @@ class SolveStats:
     """统计信息，用于难度评估和性能对比。"""
     nodes: int = 0  # 搜索节点数（尝试赋值次数）
     backtracks: int = 0  # 回溯次数
-    solve_time: float = 0.0  # 求解时间（秒）
+    solve_time: float = 0.0  # 求解时间（秒，包含动画）
+    pure_solve_time: float = 0.0  # 纯算法时间（秒，不包含动画）
 
 
 class MRVLCVSolver:
     def __init__(self):
         self.stats = SolveStats()
         self._solution: Optional[Board] = None
+        # 动画回调函数
+        self._fill_cb = None
+        self._backtrack_cb = None
+        # 纯算法时间累计
+        self._pure_time_start = 0.0
+
+    def set_animation_callbacks(self, fill_cb=None, backtrack_cb=None, ac3_prune_cb=None):
+        """设置动画回调函数"""
+        self._fill_cb = fill_cb
+        self._backtrack_cb = backtrack_cb
 
     # ---------- 外部主接口 ----------
 
@@ -42,9 +53,11 @@ class MRVLCVSolver:
         self._solution = None
 
         start_time = time.time()
+        self._pure_time_start = start_time
         work_board = deepcopy(board)
         success = self._backtrack(work_board)
         self.stats.solve_time = time.time() - start_time
+        self.stats.pure_solve_time = self.stats.solve_time  # 默认相同
 
         if success:
             return self._solution
@@ -61,6 +74,7 @@ class MRVLCVSolver:
         if mrv_info is None:
             # 没有空格了，说明已经找到解
             self._solution = deepcopy(board)
+            # 不再重新填充所有数字，因为在回溯过程中已经填充了
             return True
 
         (row, col, candidates) = mrv_info
@@ -76,6 +90,13 @@ class MRVLCVSolver:
             self.stats.nodes += 1
 
             board[row][col] = val
+            
+            # 动画：尝试填入（蓝色）
+            if self._fill_cb:
+                anim_start = time.time()
+                self._fill_cb(row, col, val, is_try=True)
+                self.stats.pure_solve_time -= (time.time() - anim_start)
+            
             # 递归求解
             if self._backtrack(board):
                 return True
@@ -83,6 +104,12 @@ class MRVLCVSolver:
             # 回溯
             board[row][col] = 0
             self.stats.backtracks += 1
+            
+            # 动画：回溯撤销（红色闪烁）
+            if self._backtrack_cb:
+                anim_start = time.time()
+                self._backtrack_cb(row, col)
+                self.stats.pure_solve_time -= (time.time() - anim_start)
 
         return False
 

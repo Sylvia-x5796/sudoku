@@ -18,12 +18,23 @@ class SolveStats:
     """统计信息"""
     nodes: int = 0  # 搜索节点数（尝试赋值次数）
     backtracks: int = 0  # 回溯次数
-    solve_time: float = 0.0  # 求解时间（秒）
+    solve_time: float = 0.0  # 求解时间（秒，包含动画）
+    pure_solve_time: float = 0.0  # 纯算法时间（秒，不包含动画）
 
 
 class SudokuSolver:
     def __init__(self):
         self.stats = SolveStats()
+        # 动画回调函数
+        self._fill_cb = None
+        self._backtrack_cb = None
+        # 纯算法时间累计
+        self._pure_time_start = 0.0
+
+    def set_animation_callbacks(self, fill_cb=None, backtrack_cb=None, ac3_prune_cb=None):
+        """设置动画回调函数"""
+        self._fill_cb = fill_cb
+        self._backtrack_cb = backtrack_cb
 
     def solve(self, board: Board) -> Optional[Board]:
         """Solve the Sudoku board. Returns the solved board or None if unsolvable."""
@@ -37,11 +48,14 @@ class SudokuSolver:
         
         # 2. Proceed with backtracking only if the initial board is legal
         start_time = time.time()
+        self._pure_time_start = start_time
         if self._backtrack(board):
             self.stats.solve_time = time.time() - start_time
+            self.stats.pure_solve_time = self.stats.solve_time  # 默认相同
             return board
         
         self.stats.solve_time = time.time() - start_time
+        self.stats.pure_solve_time = self.stats.solve_time  # 默认相同
         print("No solution found.")
         return None
 
@@ -85,6 +99,7 @@ class SudokuSolver:
     def _backtrack(self, board: Board) -> bool:
         empty_cell = self._find_empty_cell(board)
         if not empty_cell:
+            # 不再重新填充所有数字，因为在回溯过程中已经填充了
             return True  # Solved
 
         row, col = empty_cell
@@ -93,10 +108,24 @@ class SudokuSolver:
             if self._is_valid(board, row, col, num):
                 self.stats.nodes += 1  # 统计尝试次数
                 board[row][col] = num
+                
+                # 动画：尝试填入（蓝色）
+                if self._fill_cb:
+                    anim_start = time.time()
+                    self._fill_cb(row, col, num, is_try=True)
+                    self.stats.pure_solve_time -= (time.time() - anim_start)
+                
                 if self._backtrack(board):
                     return True
+                
                 board[row][col] = 0  # Backtrack
                 self.stats.backtracks += 1  # 统计回溯次数
+                
+                # 动画：回溯撤销（红色闪烁）
+                if self._backtrack_cb:
+                    anim_start = time.time()
+                    self._backtrack_cb(row, col)
+                    self.stats.pure_solve_time -= (time.time() - anim_start)
 
         return False
 

@@ -25,13 +25,26 @@ class SolveStats:
     backtracks: int = 0  # 回溯次数
     ac3_calls: int = 0  # AC-3 调用次数
     domain_reductions: int = 0  # 候选值削减次数
-    solve_time: float = 0.0  # 求解时间（秒）
+    solve_time: float = 0.0  # 求解时间（秒，包含动画）
+    pure_solve_time: float = 0.0  # 纯算法时间（秒，不包含动画）
 
 
 class AC3_MRV_LCV_Solver:
     def __init__(self):
         self.stats = SolveStats()
         self._solution: Optional[Board] = None
+        # 动画回调函数
+        self._fill_cb = None
+        self._backtrack_cb = None
+        self._ac3_prune_cb = None
+        # 纯算法时间累计
+        self._pure_time_start = 0.0
+
+    def set_animation_callbacks(self, fill_cb=None, backtrack_cb=None, ac3_prune_cb=None):
+        """设置动画回调函数"""
+        self._fill_cb = fill_cb
+        self._backtrack_cb = backtrack_cb
+        self._ac3_prune_cb = ac3_prune_cb
 
     # ------------ 外部主接口 ------------
 
@@ -45,6 +58,7 @@ class AC3_MRV_LCV_Solver:
         self._solution = None
 
         start_time = time.time()
+        self._pure_time_start = start_time
 
         # 初始化 domain（每个格子的候选集）
         domains = self._init_domains(board)
@@ -52,12 +66,14 @@ class AC3_MRV_LCV_Solver:
         # 先跑一遍全局 AC-3 进行约束传播
         if not self._ac3(board, domains):
             self.stats.solve_time = time.time() - start_time
+            self.stats.pure_solve_time = self.stats.solve_time
             return None
 
         # 回溯 + MRV + LCV
         work_board = deepcopy(board)
         success = self._backtrack(work_board, domains)
         self.stats.solve_time = time.time() - start_time
+        self.stats.pure_solve_time = self.stats.solve_time  # 默认相同
 
         if success:
             return self._solution
@@ -181,6 +197,10 @@ class AC3_MRV_LCV_Solver:
             domains[xi] = domains[xi] - to_remove
             revised = True
             self.stats.domain_reductions += len(to_remove)
+            # 动画：显示候选数被削减（AC3剪枝效果）
+            if self._ac3_prune_cb:
+                for value in to_remove:
+                    self._ac3_prune_cb(xi[0], xi[1], value)
 
         return revised
 
@@ -197,6 +217,7 @@ class AC3_MRV_LCV_Solver:
         if mrv_var is None:
             # 所有格子都有单一值，说明已找到解
             self._solution = deepcopy(board)
+            # 不再重新填充所有数字，因为在回溯过程中已经填充了
             return True
 
         (row, col) = mrv_var
@@ -218,6 +239,12 @@ class AC3_MRV_LCV_Solver:
             # 赋值
             board[row][col] = val
             domains[(row, col)] = {val}
+            
+            # 动画：尝试填入（蓝色）
+            if self._fill_cb:
+                anim_start = time.time()
+                self._fill_cb(row, col, val, is_try=True)
+                self.stats.pure_solve_time -= (time.time() - anim_start)
 
             # 对该赋值执行局部 AC-3 约束传播
             if self._ac3(board, domains):
@@ -230,6 +257,12 @@ class AC3_MRV_LCV_Solver:
             domains.clear()
             domains.update(domains_backup)
             self.stats.backtracks += 1
+            
+            # 动画：回溯撤销（红色闪烁）
+            if self._backtrack_cb:
+                anim_start = time.time()
+                self._backtrack_cb(row, col)
+                self.stats.pure_solve_time -= (time.time() - anim_start)
 
         return False
 
