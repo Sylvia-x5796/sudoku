@@ -56,9 +56,9 @@ class AC3_MRV_LCV_Solver:
         """
         self.stats = SolveStats()
         self._solution = None
+        self._animation_time = 0.0  # 累计动画时间
 
         start_time = time.time()
-        self._pure_time_start = start_time
 
         # 初始化 domain（每个格子的候选集）
         domains = self._init_domains(board)
@@ -66,14 +66,14 @@ class AC3_MRV_LCV_Solver:
         # 先跑一遍全局 AC-3 进行约束传播
         if not self._ac3(board, domains):
             self.stats.solve_time = time.time() - start_time
-            self.stats.pure_solve_time = self.stats.solve_time
+            self.stats.pure_solve_time = self.stats.solve_time - self._animation_time
             return None
 
         # 回溯 + MRV + LCV
         work_board = deepcopy(board)
         success = self._backtrack(work_board, domains)
         self.stats.solve_time = time.time() - start_time
-        self.stats.pure_solve_time = self.stats.solve_time  # 默认相同
+        self.stats.pure_solve_time = self.stats.solve_time - self._animation_time
 
         if success:
             return self._solution
@@ -244,7 +244,7 @@ class AC3_MRV_LCV_Solver:
             if self._fill_cb:
                 anim_start = time.time()
                 self._fill_cb(row, col, val, is_try=True)
-                self.stats.pure_solve_time -= (time.time() - anim_start)
+                self._animation_time += (time.time() - anim_start)
 
             # 对该赋值执行局部 AC-3 约束传播
             if self._ac3(board, domains):
@@ -262,7 +262,7 @@ class AC3_MRV_LCV_Solver:
             if self._backtrack_cb:
                 anim_start = time.time()
                 self._backtrack_cb(row, col)
-                self.stats.pure_solve_time -= (time.time() - anim_start)
+                self._animation_time += (time.time() - anim_start)
 
         return False
 

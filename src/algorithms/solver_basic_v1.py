@@ -40,6 +40,7 @@ class SudokuSolver:
         """Solve the Sudoku board. Returns the solved board or None if unsolvable."""
         # 重置统计信息
         self.stats = SolveStats()
+        self._animation_time = 0.0  # 累计动画时间
         
         # 1. First, validate the initial board (no duplicates in rows/columns/boxes)
         if not self._is_board_valid(board):
@@ -48,14 +49,13 @@ class SudokuSolver:
         
         # 2. Proceed with backtracking only if the initial board is legal
         start_time = time.time()
-        self._pure_time_start = start_time
         if self._backtrack(board):
             self.stats.solve_time = time.time() - start_time
-            self.stats.pure_solve_time = self.stats.solve_time  # 默认相同
+            self.stats.pure_solve_time = self.stats.solve_time - self._animation_time
             return board
         
         self.stats.solve_time = time.time() - start_time
-        self.stats.pure_solve_time = self.stats.solve_time  # 默认相同
+        self.stats.pure_solve_time = self.stats.solve_time - self._animation_time
         print("No solution found.")
         return None
 
@@ -113,7 +113,7 @@ class SudokuSolver:
                 if self._fill_cb:
                     anim_start = time.time()
                     self._fill_cb(row, col, num, is_try=True)
-                    self.stats.pure_solve_time -= (time.time() - anim_start)
+                    self._animation_time += (time.time() - anim_start)
                 
                 if self._backtrack(board):
                     return True
@@ -125,7 +125,7 @@ class SudokuSolver:
                 if self._backtrack_cb:
                     anim_start = time.time()
                     self._backtrack_cb(row, col)
-                    self.stats.pure_solve_time -= (time.time() - anim_start)
+                    self._animation_time += (time.time() - anim_start)
 
         return False
 

@@ -199,28 +199,30 @@ solve_btn.pack(side=tk.LEFT, padx=8)
 compare_btn = create_button(row2, "📊 对比算法", lambda: compare_algorithms(), 15)
 compare_btn.pack(side=tk.LEFT, padx=8)
 
-chart_btn = create_button(row2, "📈 统计图表", lambda: show_chart(), 12)
-chart_btn.pack(side=tk.LEFT, padx=8)
-
 # ==================== 主体区域 ====================
 main_container = tk.Frame(root, bg=THEME["bg_dark"])
 main_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
 
-# 左侧：数独网格
-left_panel = tk.Frame(main_container, bg=THEME["bg_card"], relief="flat", bd=3)
-left_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
+# 左侧面板：数独网格 + 性能统计
+left_panel = tk.Frame(main_container, bg=THEME["bg_dark"], width=420)
+left_panel.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
+left_panel.pack_propagate(False)  # 固定宽度
+
+# 数独网格区域
+grid_container = tk.Frame(left_panel, bg=THEME["bg_card"], relief="flat", bd=2)
+grid_container.pack(fill=tk.X, pady=(0, 10))
 
 # 网格标题
-grid_title = tk.Label(left_panel, text="数独盘面",
+grid_title = tk.Label(grid_container, text="数独盘面",
     bg=THEME["bg_card"], fg=THEME["text_accent"],
-    font=("Segoe UI", 14, "bold"))
-grid_title.pack(pady=15)
+    font=("Segoe UI", 12, "bold"))
+grid_title.pack(pady=8)
 
 # 数独网格容器
-grid_frame = tk.Frame(left_panel, bg=THEME["bg_dark"], relief="solid", bd=3)
-grid_frame.pack(padx=20, pady=(0, 20))
+grid_frame = tk.Frame(grid_container, bg=THEME["bg_dark"], relief="solid", bd=2)
+grid_frame.pack(padx=10, pady=(0, 10))
 
-# 创建9x9网格
+# 创建9x9网格（缩小尺寸）
 for row in range(9):
     for col in range(9):
         # 计算背景颜色（3x3宫格交替）
@@ -228,38 +230,34 @@ for row in range(9):
         bg_color = THEME["grid_bg1"] if (block_row + block_col) % 2 == 0 else THEME["grid_bg2"]
         
         entry = tk.Entry(grid_frame,
-            width=3,
-            font=("Consolas", 20, "bold"),
+            width=2,
+            font=("Consolas", 16, "bold"),
             justify=tk.CENTER,
             bg=bg_color,
             fg=THEME["text_primary"],
             insertbackground=THEME["text_accent"],
             relief="flat",
             bd=1,
-            highlightthickness=2,
+            highlightthickness=1,
             highlightbackground=THEME["grid_line"],
             highlightcolor=THEME["accent"])
         
         # 设置边距（3x3宫格之间加粗）
-        padx = (2, 4) if (col + 1) % 3 == 0 else (2, 2)
-        pady = (2, 4) if (row + 1) % 3 == 0 else (2, 2)
+        padx = (1, 3) if (col + 1) % 3 == 0 else (1, 1)
+        pady = (1, 3) if (row + 1) % 3 == 0 else (1, 1)
         
         entry.grid(row=row, column=col, padx=padx, pady=pady, sticky="nsew")
         sudoku_entries[row][col] = entry
 
 # 配置网格权重
 for i in range(9):
-    grid_frame.grid_rowconfigure(i, weight=1, minsize=50)
-    grid_frame.grid_columnconfigure(i, weight=1, minsize=50)
+    grid_frame.grid_rowconfigure(i, weight=1, minsize=38)
+    grid_frame.grid_columnconfigure(i, weight=1, minsize=38)
 
-# 右侧：统计和可视化
-right_panel = tk.Frame(main_container, bg=THEME["bg_dark"])
-right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
-
-# 性能统计区
-stats_frame = ttk.LabelFrame(right_panel, text="⚡ 性能统计",
-    style="Premium.TLabelframe", padding=15)
-stats_frame.pack(fill=tk.X, pady=(0, 10))
+# 性能统计区（在数独盘面下方）
+stats_frame = ttk.LabelFrame(left_panel, text="⚡ 性能统计",
+    style="Premium.TLabelframe", padding=10)
+stats_frame.pack(fill=tk.BOTH, expand=True)
 
 perf_labels = {}
 metrics = [
@@ -271,31 +269,241 @@ metrics = [
 ]
 
 for key, label_text, default_value in metrics:
-    row = tk.Frame(stats_frame, bg=THEME["bg_card"])
-    row.pack(fill=tk.X, pady=5)
+    stat_row = tk.Frame(stats_frame, bg=THEME["bg_card"])
+    stat_row.pack(fill=tk.X, pady=3)
     
-    tk.Label(row, text=f"{label_text}：",
+    tk.Label(stat_row, text=f"{label_text}：",
         bg=THEME["bg_card"], fg=THEME["text_secondary"],
-        font=("Segoe UI", 10)).pack(side=tk.LEFT)
+        font=("Segoe UI", 9)).pack(side=tk.LEFT)
     
-    value_label = tk.Label(row, text=default_value,
+    value_label = tk.Label(stat_row, text=default_value,
         bg=THEME["bg_card"], fg=THEME["text_accent"],
-        font=("Segoe UI", 11, "bold"))
-    value_label.pack(side=tk.LEFT, padx=10)
+        font=("Segoe UI", 10, "bold"))
+    value_label.pack(side=tk.LEFT, padx=8)
     perf_labels[key] = value_label
 
-# 对比结果区
-compare_frame = ttk.LabelFrame(right_panel, text="📊 算法对比",
-    style="Premium.TLabelframe", padding=15)
-compare_frame.pack(fill=tk.BOTH, expand=True)
+# 右侧面板：搜索树可视化（增大）
+right_panel = tk.Frame(main_container, bg=THEME["bg_dark"])
+right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
-compare_text = tk.Text(compare_frame,
-    bg=THEME["bg_medium"], fg=THEME["text_primary"],
-    font=("Consolas", 10), relief="flat",
-    wrap=tk.WORD, height=10)
-compare_text.pack(fill=tk.BOTH, expand=True)
-compare_text.insert(tk.END, "点击「对比算法」查看结果...")
-compare_text.config(state="disabled")
+# 搜索树可视化区
+tree_frame = ttk.LabelFrame(right_panel, text="🌳 搜索树可视化",
+    style="Premium.TLabelframe", padding=5)
+tree_frame.pack(fill=tk.BOTH, expand=True)
+
+# 搜索树画布（带滚动条）
+tree_canvas_frame = tk.Frame(tree_frame, bg=THEME["bg_medium"])
+tree_canvas_frame.pack(fill=tk.BOTH, expand=True)
+
+tree_canvas = tk.Canvas(tree_canvas_frame, bg=THEME["bg_medium"], highlightthickness=0)
+tree_scrollbar_y = tk.Scrollbar(tree_canvas_frame, orient=tk.VERTICAL, command=tree_canvas.yview)
+tree_scrollbar_x = tk.Scrollbar(tree_canvas_frame, orient=tk.HORIZONTAL, command=tree_canvas.xview)
+
+tree_canvas.configure(yscrollcommand=tree_scrollbar_y.set, xscrollcommand=tree_scrollbar_x.set)
+
+tree_scrollbar_y.pack(side=tk.RIGHT, fill=tk.Y)
+tree_scrollbar_x.pack(side=tk.BOTTOM, fill=tk.X)
+tree_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+# ==================== 搜索树可视化类（自适应蛇形布局）====================
+class SearchTreeVisualizer:
+    """搜索树可视化 - 自适应蛇形布局，充分利用页面空间"""
+    
+    def __init__(self, canvas):
+        self.canvas = canvas
+        self.nodes = {}
+        self.node_counter = 0
+        self.current_path = []
+        self.root_node = None
+        
+        # 基础布局参数
+        self.base_node_radius = 12
+        self.base_node_spacing = 28
+        self.margin = 20
+        
+        # 动态计算的参数
+        self.node_radius = self.base_node_radius
+        self.node_spacing = self.base_node_spacing
+        self.nodes_per_row = 20
+        self.row_height = 50
+        
+        # 颜色
+        self.colors = {
+            'trying': THEME["anim_try"],
+            'backtrack': THEME["anim_backtrack"],
+            'success': THEME["anim_success"],
+            'default': THEME["bg_light"],
+            'text': THEME["text_primary"],
+            'line': THEME["text_secondary"],
+            'line_success': THEME["success"],
+            'row_indicator': THEME["text_accent"],
+        }
+        
+        self.row_labels = []
+    
+    def _get_canvas_size(self):
+        self.canvas.update_idletasks()
+        width = self.canvas.winfo_width()
+        height = self.canvas.winfo_height()
+        return max(width, 400), max(height, 300)
+    
+    def _calculate_layout_params(self):
+        width, height = self._get_canvas_size()
+        usable_width = width - self.margin * 2 - 40
+        self.nodes_per_row = max(10, int(usable_width / self.base_node_spacing))
+        self.node_spacing = usable_width / self.nodes_per_row
+        usable_height = height - self.margin * 2
+        max_rows = max(4, int(usable_height / 50))
+        self.row_height = usable_height / max_rows
+        self.node_radius = min(self.base_node_radius, 
+                               int(self.node_spacing * 0.35),
+                               int(self.row_height * 0.25))
+        self.node_radius = max(8, self.node_radius)
+    
+    def _get_node_position(self, index):
+        row = index // self.nodes_per_row
+        col_in_row = index % self.nodes_per_row
+        if row % 2 == 0:
+            x = self.margin + 40 + col_in_row * self.node_spacing + self.node_spacing / 2
+        else:
+            x = self.margin + 40 + (self.nodes_per_row - 1 - col_in_row) * self.node_spacing + self.node_spacing / 2
+        y = self.margin + row * self.row_height + self.row_height / 2
+        return x, y, row
+    
+    def clear(self):
+        self.canvas.delete("all")
+        self.nodes = {}
+        self.node_counter = 0
+        self.current_path = []
+        self.root_node = None
+        self.row_labels = []
+        self._calculate_layout_params()
+        width, height = self._get_canvas_size()
+        self.canvas.create_text(
+            width // 2, height // 2,
+            text="开始求解后显示搜索树",
+            fill=THEME["text_secondary"],
+            font=("Segoe UI", 11),
+            tags="placeholder"
+        )
+    
+    def _draw_row_indicator(self, row_num):
+        y = self.margin + row_num * self.row_height + self.row_height / 2
+        if row_num not in self.row_labels:
+            self.row_labels.append(row_num)
+            self.canvas.create_rectangle(
+                5, y - 12, 35, y + 12,
+                fill=THEME["bg_card"], outline=THEME["grid_line"],
+                tags=f"row_bg_{row_num}"
+            )
+            self.canvas.create_text(
+                20, y, text=f"L{row_num + 1}",
+                fill=self.colors['row_indicator'],
+                font=("Consolas", 8, "bold"),
+                tags=f"row_label_{row_num}"
+            )
+    
+    def _draw_connection_line(self, parent_x, parent_y, parent_row, x, y, current_row, node_id):
+        if parent_row == current_row:
+            return self.canvas.create_line(
+                parent_x + self.node_radius, parent_y,
+                x - self.node_radius, y,
+                fill=self.colors['line'], width=2,
+                tags=f"line_{node_id}"
+            )
+        else:
+            mid_y = (parent_y + y) / 2
+            return self.canvas.create_line(
+                parent_x, parent_y + self.node_radius,
+                parent_x, mid_y,
+                x, mid_y,
+                x, y - self.node_radius,
+                fill=self.colors['line'], width=2,
+                smooth=True,
+                tags=f"line_{node_id}"
+            )
+    
+    def add_node(self, row, col, value, parent_id=None):
+        self.canvas.delete("placeholder")
+        if self.node_counter == 0:
+            self._calculate_layout_params()
+        
+        node_id = self.node_counter
+        self.node_counter += 1
+        x, y, current_row = self._get_node_position(node_id)
+        self._draw_row_indicator(current_row)
+        
+        line_id = None
+        if parent_id is not None and parent_id in self.nodes:
+            parent = self.nodes[parent_id]
+            parent_row = self._get_node_position(parent_id)[2]
+            line_id = self._draw_connection_line(
+                parent['x'], parent['y'], parent_row,
+                x, y, current_row, node_id
+            )
+        
+        oval_id = self.canvas.create_oval(
+            x - self.node_radius, y - self.node_radius,
+            x + self.node_radius, y + self.node_radius,
+            fill=self.colors['trying'], outline=THEME["text_primary"], width=1,
+            tags=f"node_{node_id}"
+        )
+        
+        font_size = max(7, min(9, int(self.node_radius * 0.7)))
+        text_id = self.canvas.create_text(
+            x, y, text=str(value),
+            fill=self.colors['text'], font=("Consolas", font_size, "bold"),
+            tags=f"text_{node_id}"
+        )
+        
+        self.nodes[node_id] = {
+            'x': x, 'y': y,
+            'row': row, 'col': col, 'value': value,
+            'oval_id': oval_id, 'text_id': text_id,
+            'parent_id': parent_id, 'line_id': line_id,
+            'state': 'trying', 'display_row': current_row
+        }
+        
+        self.current_path.append(node_id)
+        if self.root_node is None:
+            self.root_node = node_id
+        self.canvas.update_idletasks()
+        return node_id
+    
+    def backtrack_node(self):
+        if not self.current_path:
+            return
+        node_id = self.current_path.pop()
+        if node_id in self.nodes:
+            node = self.nodes[node_id]
+            self.canvas.itemconfig(node['oval_id'], fill=self.colors['backtrack'])
+            node['state'] = 'backtrack'
+    
+    def mark_success_path(self):
+        for node_id in self.current_path:
+            if node_id in self.nodes:
+                node = self.nodes[node_id]
+                self.canvas.itemconfig(node['oval_id'], fill=self.colors['success'])
+                if node['line_id']:
+                    self.canvas.itemconfig(node['line_id'], fill=self.colors['line_success'], width=2)
+                node['state'] = 'success'
+        if self.nodes:
+            width, height = self._get_canvas_size()
+            self.canvas.create_text(
+                width // 2, height - 15,
+                text=f"✓ 搜索完成! 共 {len(self.nodes)} 步",
+                fill=THEME["success"],
+                font=("Segoe UI", 9, "bold"),
+                tags="success_msg"
+            )
+    
+    def get_current_parent_id(self):
+        if self.current_path:
+            return self.current_path[-1]
+        return None
+
+# 创建搜索树可视化器实例
+search_tree_viz = SearchTreeVisualizer(tree_canvas)
 
 # ==================== 核心功能函数 ====================
 def get_speed_params():
@@ -309,7 +517,7 @@ def get_speed_params():
 
 def disable_buttons():
     """禁用所有按钮"""
-    for btn in [clear_btn, fill_btn, solve_btn, compare_btn, chart_btn]:
+    for btn in [clear_btn, fill_btn, solve_btn, compare_btn]:
         btn.config(state="disabled")
     difficulty_menu.config(state="disabled")
     alg_menu.config(state="disabled")
@@ -317,7 +525,7 @@ def disable_buttons():
 
 def enable_buttons():
     """启用所有按钮"""
-    for btn in [clear_btn, fill_btn, solve_btn, compare_btn, chart_btn]:
+    for btn in [clear_btn, fill_btn, solve_btn, compare_btn]:
         btn.config(state="normal")
     difficulty_menu.config(state="readonly")
     alg_menu.config(state="readonly")
@@ -339,11 +547,7 @@ def clear_sudoku():
             original_puzzle[row][col] = 0
     
     update_performance(None)
-    compare_text.config(state="normal")
-    compare_text.delete(1.0, tk.END)
-    compare_text.insert(tk.END, "点击「对比算法」查看结果...")
-    compare_text.config(state="disabled")
-    
+    search_tree_viz.clear()  # 清空搜索树
     enable_buttons()
 
 def read_sudoku():
@@ -555,6 +759,11 @@ def animation_fill_cell(row, col, value, is_try=True):
     if is_try:
         # 尝试填入 - 蓝色背景
         entry.config(bg=THEME["anim_try"], fg=THEME["text_primary"])
+        
+        # 同步更新搜索树 - 添加蓝色节点
+        parent_id = search_tree_viz.get_current_parent_id()
+        search_tree_viz.add_node(row, col, value, parent_id)
+        
         root.update_idletasks()
         time.sleep(interval / 1000.0)  # 暂停以显示动画
     else:
@@ -581,6 +790,10 @@ def animation_backtrack_cell(row, col):
     entry.delete(0, tk.END)
     entry.insert(0, "✗")
     entry.config(fg=THEME["error"])
+    
+    # 同步更新搜索树 - 标记当前节点为红色并回溯
+    search_tree_viz.backtrack_node()
+    
     root.update_idletasks()
     
     # 暂停显示
@@ -631,6 +844,9 @@ def solve_sudoku():
     is_animating = animate_var.get()
     perf_labels['algorithm'].config(text=selected_alg)
     perf_labels['status'].config(text="求解中...", fg=THEME["warning"])
+    
+    # 清空搜索树
+    search_tree_viz.clear()
     
     def run_solver():
         try:
@@ -694,8 +910,8 @@ def finish_solve(success, result_board, final_perf):
     update_performance(final_perf)
     
     if success:
-        # 不再调用fill_sudoku，因为动画已经填充了所有数字
-        # fill_sudoku(result_board, is_initial=False)
+        # 标记搜索树成功路径为绿色
+        search_tree_viz.mark_success_path()
         perf_labels['status'].config(text="✓ 求解成功", fg=THEME["success"])
     else:
         perf_labels['status'].config(text="✗ 求解失败", fg=THEME["error"])
@@ -710,7 +926,7 @@ performance_data = {
 }
 
 def compare_algorithms():
-    """对比所有算法"""
+    """对比所有算法并显示图表"""
     sudoku_data = read_sudoku()
     
     if all(value == 0 for row in sudoku_data for value in row):
@@ -719,69 +935,42 @@ def compare_algorithms():
     
     disable_buttons()
     perf_labels['status'].config(text="正在对比算法...", fg=THEME["warning"])
-    compare_text.config(state="normal")
-    compare_text.delete(1.0, tk.END)
-    compare_text.insert(tk.END, "正在运行算法对比，请稍候...\n")
-    compare_text.config(state="disabled")
     
     def run_comparison():
         try:
-            results = []
-            
             # 测试基础DFS（对比时不使用动画，获取真实性能）
             if BasicSolver:
                 puzzle = deepcopy(sudoku_data)
                 solver = BasicSolver()
-                solution = solver.solve(puzzle)
+                solver.solve(puzzle)
                 actual_time = solver.stats.pure_solve_time if hasattr(solver.stats, 'pure_solve_time') else solver.stats.solve_time
                 performance_data["基础DFS"]["time"] = actual_time
                 performance_data["基础DFS"]["nodes"] = solver.stats.nodes
                 performance_data["基础DFS"]["backtracks"] = solver.stats.backtracks
-                results.append(
-                    f"🔹 基础DFS算法\n"
-                    f"   耗时: {actual_time:.3f}秒\n"
-                    f"   节点: {solver.stats.nodes}\n"
-                    f"   回溯: {solver.stats.backtracks}\n"
-                    f"   结果: {'✓成功' if solution else '✗失败'}\n")
             
             # 测试MRV+LCV
             if MRVLCVSolver:
                 puzzle = deepcopy(sudoku_data)
                 solver = MRVLCVSolver()
-                solution = solver.solve(puzzle)
+                solver.solve(puzzle)
                 actual_time = solver.stats.pure_solve_time if hasattr(solver.stats, 'pure_solve_time') else solver.stats.solve_time
                 performance_data["MRV+LCV"]["time"] = actual_time
                 performance_data["MRV+LCV"]["nodes"] = solver.stats.nodes
                 performance_data["MRV+LCV"]["backtracks"] = solver.stats.backtracks
-                results.append(
-                    f"🔹 MRV+LCV算法\n"
-                    f"   耗时: {actual_time:.3f}秒\n"
-                    f"   节点: {solver.stats.nodes}\n"
-                    f"   回溯: {solver.stats.backtracks}\n"
-                    f"   结果: {'✓成功' if solution else '✗失败'}\n")
             
             # 测试AC3+MRV+LCV
             if AC3_MRV_LCV_Solver:
                 puzzle = deepcopy(sudoku_data)
                 solver = AC3_MRV_LCV_Solver()
-                solution = solver.solve(puzzle)
+                solver.solve(puzzle)
                 actual_time = solver.stats.pure_solve_time if hasattr(solver.stats, 'pure_solve_time') else solver.stats.solve_time
                 performance_data["AC3+MRV+LCV"]["time"] = actual_time
                 performance_data["AC3+MRV+LCV"]["nodes"] = solver.stats.nodes
                 performance_data["AC3+MRV+LCV"]["backtracks"] = solver.stats.backtracks
-                results.append(
-                    f"🔹 AC3+MRV+LCV算法\n"
-                    f"   耗时: {actual_time:.3f}秒\n"
-                    f"   节点: {solver.stats.nodes}\n"
-                    f"   回溯: {solver.stats.backtracks}\n"
-                    f"   结果: {'✓成功' if solution else '✗失败'}\n")
             
-            result_text = "\n".join(results)
+            # 显示图表
             root.after(0, lambda: [
-                compare_text.config(state="normal"),
-                compare_text.delete(1.0, tk.END),
-                compare_text.insert(tk.END, result_text),
-                compare_text.config(state="disabled"),
+                show_chart(),
                 perf_labels['status'].config(text="✓ 对比完成", fg=THEME["success"])
             ])
             
